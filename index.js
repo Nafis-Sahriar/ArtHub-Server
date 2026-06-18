@@ -32,9 +32,10 @@ async function run() {
     const database = client.db("arthubdb");
     const artCollection = database.collection("artworks"); // Changed to match frontend
 
-    // ==========================================
-    // ARTWORK APIs
-    // ==========================================
+    await client.connect();
+
+
+
 
     // POST: Upload a new artwork
     app.post("/api/artworks", async (req, res) => 
