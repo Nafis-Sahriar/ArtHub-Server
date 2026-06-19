@@ -33,7 +33,7 @@ async function run() {
     const artCollection = database.collection("artworks"); // Changed to match frontend
     const artPurchaseCollection = database.collection("purchases"); // New collection for purchases
 
-    await client.connect();
+    // await client.connect();
 
 
 
@@ -139,28 +139,27 @@ async function run() {
 
 
 
-    // POST: Record a new purchase
-    // POST: Record a new purchase and update artwork status
+    // Artwork Purchase APIs; 
+
     app.post("/api/purchases", async (req, res) => {
         try {
             const purchase = req.body;
 
-            // 1. Validate that we have the artworkId
+            
             if (!purchase.artworkId) {
                 return res.status(400).json({ error: "artworkId is required" });
             }
 
-            // 2. Prepare the purchase record
+      
             const newPurchase = {
                 ...purchase,
                 purchaseDate: new Date()
             };
 
-            // 3. Insert into the purchases collection
+       
             const purchaseResult = await artPurchaseCollection.insertOne(newPurchase);
 
-            // 4. Update the artwork status to 'sold'
-            // Using the same ObjectId pattern you used in your delete endpoint
+  
             const updateResult = await artCollection.updateOne(
                 { _id: new ObjectId(purchase.artworkId) },
                 { $set: { status: "sold" } }
@@ -180,6 +179,34 @@ async function run() {
             res.status(500).json({ error: "Failed to record purchase" });
         }
     });
+
+
+  
+
+    app.get("/api/purchases", async(req,res)=>{
+
+        const query ={};
+
+        if(req.query.buyerId){
+            query.buyerId = req.query.buyerId;
+        }
+
+        if(req.query.artistId){
+            query.artistId = req.query.artistId;
+        }
+
+        const purchases = await artPurchaseCollection.find(query).toArray();
+        res.status(200).json(purchases);
+
+    })
+
+
+
+
+
+
+
+
 
 
 
