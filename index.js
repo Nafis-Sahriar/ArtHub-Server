@@ -30,8 +30,11 @@ async function run() {
   try {
     // Database and Collection definition
     const database = client.db("arthubdb");
+    const usersCollection = database.collection("user");
     const artCollection = database.collection("artworks"); // Changed to match frontend
     const artPurchaseCollection = database.collection("purchases"); // New collection for purchases
+    const planCollection = database.collection("plans"); // New collection for subscription plans
+    const subscriptionCollection = database.collection("subscriptions"); // New collection for user subscriptions
 
     // await client.connect();
 
@@ -141,44 +144,93 @@ async function run() {
 
     // Artwork Purchase APIs; 
 
-    app.post("/api/purchases", async (req, res) => {
-        try {
-            const purchase = req.body;
+    // app.post("/api/purchases", async (req, res) => {
+    //     try {
+    //         const purchase = req.body;
 
             
-            if (!purchase.artworkId) {
-                return res.status(400).json({ error: "artworkId is required" });
-            }
+    //         if (!purchase.artworkId) {
+    //             return res.status(400).json({ error: "artworkId is required" });
+    //         }
 
       
-            const newPurchase = {
-                ...purchase,
-                purchaseDate: new Date()
-            };
+    //         const newPurchase = {
+    //             ...purchase,
+    //             purchaseDate: new Date()
+    //         };
 
        
-            const purchaseResult = await artPurchaseCollection.insertOne(newPurchase);
+    //         const purchaseResult = await artPurchaseCollection.insertOne(newPurchase);
 
   
-            const updateResult = await artCollection.updateOne(
-                { _id: new ObjectId(purchase.artworkId) },
-                { $set: { status: "sold" } }
-            );
+    //         const updateResult = await artCollection.updateOne(
+    //             { _id: new ObjectId(purchase.artworkId) },
+    //             { $set: { status: "sold" } }
+    //         );
 
-            if (updateResult.matchedCount === 0) {
-                return res.status(404).json({ error: "Artwork not found" });
-            }
+    //         if (updateResult.matchedCount === 0) {
+    //             return res.status(404).json({ error: "Artwork not found" });
+    //         }
 
-            res.status(201).json({ 
-                success: true, 
-                purchaseId: purchaseResult.insertedId 
-            });
+    //         res.status(201).json({ 
+    //             success: true, 
+    //             purchaseId: purchaseResult.insertedId 
+    //         });
 
-        } catch (error) {
-            console.error("Error recording purchase:", error);
-            res.status(500).json({ error: "Failed to record purchase" });
+    //     } catch (error) {
+    //         console.error("Error recording purchase:", error);
+    //         res.status(500).json({ error: "Failed to record purchase" });
+    //     }
+    // });
+
+    app.post("/api/purchases", async (req, res) => {
+    try {
+        const purchase = req.body;
+
+        if (!purchase.artworkId) {
+            return res.status(400).json({ error: "artworkId is required" });
         }
-    });
+
+        if (purchase.sessionId) 
+            {
+            const existingPurchase = await artPurchaseCollection.findOne({ sessionId: purchase.sessionId });
+            if (existingPurchase) 
+            {
+               
+                return res.status(200).json({ 
+                    success: true, 
+                    message: "Purchase already recorded" 
+                });
+            }
+        }
+       
+
+        const newPurchase = {
+            ...purchase,
+            purchaseDate: new Date()
+        };
+
+        const purchaseResult = await artPurchaseCollection.insertOne(newPurchase);
+
+        const updateResult = await artCollection.updateOne(
+            { _id: new ObjectId(purchase.artworkId) },
+            { $set: { status: "sold" } }
+        );
+
+        if (updateResult.matchedCount === 0) {
+            return res.status(404).json({ error: "Artwork not found" });
+        }
+
+        res.status(201).json({ 
+            success: true, 
+            purchaseId: purchaseResult.insertedId 
+        });
+
+    } catch (error) {
+        console.error("Error recording purchase:", error);
+        res.status(500).json({ error: "Failed to record purchase" });
+    }
+});
 
 
   
@@ -195,8 +247,55 @@ async function run() {
             query.artistId = req.query.artistId;
         }
 
-        const purchases = await artPurchaseCollection.find(query).toArray();
+        const purchases = await artPurchaseCollection.find(query).sort({ purchaseDate: -1 }).toArray();
         res.status(200).json(purchases);
+
+    })
+
+
+    //plans
+
+    app.get("/api/plans", async(req,res)=>{
+
+        const query = {};
+        if(req.query.plan_id){
+            query.id = req.query.plan_id;
+        }
+
+        const plan = await planCollection.findOne(query);
+        res.status(200).json(plan);
+    })
+
+    //subscriptions
+    app.post("/api/subscriptions", async(req,res)=>{
+
+        const data = req.body;
+
+        console.log("Received subscription data:", data);
+        const subsInfo={
+            ...data,
+            createdAt: new Date()
+        }
+
+        const result = await subscriptionCollection.insertOne(subsInfo);
+
+        //update the user plan 
+
+        const filter ={
+            email: data.email
+        }
+
+        const updateDocument ={
+            $set:{
+                plan: data.planId,
+            }
+        }
+
+        const updateResult = await usersCollection.updateOne(filter, updateDocument);
+
+
+       res.json(updateResult);
+
 
     })
 
