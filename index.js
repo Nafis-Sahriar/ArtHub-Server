@@ -299,6 +299,30 @@ async function run() {
 
     })
 
+    app.patch("/api/users/:id", async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const updates = req.body;
+
+       
+
+        const result = await usersCollection.updateOne(
+            { _id: new ObjectId(userId) },
+            { $set: updates }
+        );
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Profile updated successfully",
+            modifiedCount: result.modifiedCount
+        });
+
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).json({ error: "Failed to update profile" });
+    }
+});
+
 
 
 
