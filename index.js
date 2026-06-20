@@ -300,6 +300,16 @@ async function run() {
 
     })
 
+    app.get("/api/subscriptions", async (req, res) => {
+    try {
+        const subscriptions = await subscriptionCollection.find({}).sort({ createdAt: -1 }).toArray();
+        res.status(200).json(subscriptions);
+    } catch (error) {
+        console.error("Error fetching subscriptions:", error);
+        res.status(500).json({ error: "Failed to fetch subscriptions" });
+    }
+});
+
 
   app.get("/api/users", async (req, res) => {
     try {
@@ -343,6 +353,117 @@ async function run() {
 
 
 
+// admin stats aggregation apis
+
+//user stats api.
+app.get("/api/admin/stats/users", async (req, res) => {
+    try {
+        const totalUsers = await usersCollection.countDocuments({}); 
+        const totalArtists = await usersCollection.countDocuments({ role: "artist" });
+        const totalBuyers = await usersCollection.countDocuments({ role: { $nin: ["artist", "admin"] } });
+        
+        // Return all three
+        res.status(200).json({ totalUsers, totalArtists, totalBuyers });
+    } catch (error) {
+        console.error("Error fetching user stats:", error);
+        res.status(500).json({ error: "Failed to fetch user stats" });
+    }
+});
+
+
+app.get("/api/admin/stats/artworks", async (req, res) => {
+    try {
+        const pipeline = [
+            { 
+                $group: { 
+                    _id: { $ifNull: ["$category", "Uncategorized"] }, 
+                    count: { $sum: 1 } 
+                } 
+            },
+            { 
+                $project: { 
+                    name: "$_id", 
+                    value: "$count", 
+                    _id: 0 
+                } 
+            }
+        ];
+        
+        const pieChartData = await artCollection.aggregate(pipeline).toArray();
+        res.status(200).json(pieChartData);
+    } catch (error) {
+        console.error("Error fetching artwork stats:", error);
+        res.status(500).json({ error: "Failed to fetch artwork stats" });
+    }
+});
+
+app.get("/api/admin/stats/category-sales", async (req, res) => {
+    try {
+        const pipeline = [
+            {
+               
+                $group: {
+                    _id: { $ifNull: ["$category", "Uncategorized"] }, 
+                    totalRevenue: { $sum: "$price" },                 
+                    itemsSold: { $sum: 1 }                            
+                }
+            },
+            {
+                
+                $project: {
+                    name: "$_id",
+                    value: "$totalRevenue", 
+                    itemsSold: 1,
+                    _id: 0
+                }
+            },
+            { 
+               
+                $sort: { value: -1 } 
+            }
+        ];
+        
+    
+        const categorySalesData = await artPurchaseCollection.aggregate(pipeline).toArray();
+        
+        res.status(200).json(categorySalesData);
+        
+    } catch (error) {
+        console.error("Error fetching category sales:", error);
+        res.status(500).json({ error: "Failed to fetch category sales data" });
+    }
+});
+
+
+app.get("/api/admin/stats/subscriptions", async (req, res) => {
+    try {
+        const pipeline = [
+            {
+                $group: {
+                    _id: null,
+                    totalSubRevenue: {
+                        $sum: {
+                            $switch: {
+                                branches: [
+                                    { case: { $eq: ["$planId", "buyer_premium"] }, then: 19.99 },
+                                    { case: { $eq: ["$planId", "buyer_pro"] }, then: 9.99 }
+                                ],
+                                default: 0 
+                            }
+                        }
+                    }
+                }
+            }
+        ];
+        const result = await subscriptionCollection.aggregate(pipeline).toArray();
+        const totalSubscriptionRevenue = result.length > 0 ? result[0].totalSubRevenue : 0;
+        
+        res.status(200).json({ totalSubscriptionRevenue });
+    } catch (error) {
+        console.error("Error fetching subscription stats:", error);
+        res.status(500).json({ error: "Failed to fetch subscription stats" });
+    }
+});
 
 
 
