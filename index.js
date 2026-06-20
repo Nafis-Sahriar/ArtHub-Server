@@ -38,6 +38,7 @@ async function run() {
 
     // await client.connect();
 
+    
 
 
 
@@ -298,6 +299,22 @@ async function run() {
 
 
     })
+
+
+  app.get("/api/users", async (req, res) => {
+    try {
+       
+        const result = await usersCollection.find({})
+            .project({ password: 0 }) 
+            .toArray();
+            
+        res.status(200).json(result);
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ error: "Failed to fetch users from the database." });
+    }
+});
+
 
     app.patch("/api/users/:id", async (req, res) => {
     try {
