@@ -35,6 +35,7 @@ async function run() {
     const artPurchaseCollection = database.collection("purchases"); // New collection for purchases
     const planCollection = database.collection("plans"); // New collection for subscription plans
     const subscriptionCollection = database.collection("subscriptions"); // New collection for user subscriptions
+    const commentsCollection = database.collection("comments"); 
 
     // await client.connect();
 
@@ -60,25 +61,64 @@ async function run() {
 
     // GET: Fetch all artworks for the public gallery
    
-    app.get("/api/artworks", async(req,res)=>{
+// app.get("/api/artworks", async(req,res)=>{
 
+//         const query = {};
+
+//         if(req.query.artistId){
+//             query.artistId = req.query.artistId;
+//         }
+//         if(req.query.status)
+//         {
+//             query.status = req.query.status;
+//         }
+
+//         const cursor = artCollection.find(query);
+//         const result = await cursor.toArray();
+//         res.json(result);
+
+//     });
+
+
+
+app.get("/api/artworks", async (req, res) => {
+    try {
         const query = {};
 
-        if(req.query.artistId){
-            query.artistId = req.query.artistId;
+        if (req.query.artistId) query.artistId = req.query.artistId;
+        if (req.query.status) query.status = req.query.status;
+
+      
+        if (req.query.search) {
+            query.$or = [
+                { title: { $regex: req.query.search, $options: 'i' } },
+                { artistName: { $regex: req.query.search, $options: 'i' } }
+            ];
         }
-        if(req.query.status)
-        {
-            query.status = req.query.status;
+
+     
+        if (req.query.category && req.query.category !== 'all') {
+            query.category = req.query.category;
         }
 
-        const cursor = artCollection.find(query);
-        const result = await cursor.toArray();
-        res.json(result);
+      
+        let sortOption = { createdAt: -1 }; 
+        if (req.query.sort === 'price_low') sortOption = { price: 1 };
+        if (req.query.sort === 'price_high') sortOption = { price: -1 };
 
-    })
+     
+        const cursor = artCollection.find(query).sort(sortOption);
+        const results = await cursor.toArray();
+        
+        res.status(200).json(results);
 
-    // GET: Fetch a single artwork by ID
+    } catch (error) {
+        console.error("Error fetching artworks:", error);
+        res.status(500).json({ error: "Failed to fetch artworks" });
+    }
+});
+
+    
     app.get("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -97,7 +137,7 @@ async function run() {
       }
     });
 
-    // PATCH: Update an existing artwork
+
     app.patch("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
@@ -121,12 +161,12 @@ async function run() {
       }
     });
 
-    // DELETE: Remove a specific artwork
+  
     app.delete("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
         
-        // MongoDB requires the ID to be wrapped in ObjectId
+        
         const query = { _id: new ObjectId(id) }; 
         const result = await artCollection.deleteOne(query);
         
@@ -329,10 +369,11 @@ async function run() {
     app.patch("/api/users/:id", async (req, res) => {
     try {
         const userId = req.params.id;
-        const updates = req.body;
-
-       
-
+        const updates = {
+            name: req.body.name,
+            image:req.body.imageUrl
+        }
+        
         const result = await usersCollection.updateOne(
             { _id: new ObjectId(userId) },
             { $set: updates }
@@ -347,6 +388,98 @@ async function run() {
     } catch (error) {
         console.error("Error updating profile:", error);
         res.status(500).json({ error: "Failed to update profile" });
+    }
+});
+
+//comments section
+
+// POST a new comment
+app.post("/api/comments", async (req, res) => {
+    try {
+        const { artworkId, userId, userName, userImageUrl, comment } = req.body;
+
+        const newComment = {
+            artworkId,
+            userId,
+            userName,
+            userImageUrl,
+            comment,
+            createdAt: new Date().toISOString() // Standardized date format
+        };
+
+        const result = await commentsCollection.insertOne(newComment);
+        
+        // Return the full comment back to the frontend so we can display it instantly
+        res.status(201).json({ ...newComment, _id: result.insertedId });
+    } catch (error) {
+        console.error("Error posting comment:", error);
+        res.status(500).json({ error: "Failed to post comment" });
+    }
+});
+
+// GET comments for a specific artwork
+app.get("/api/comments/:artworkId", async (req, res) => {
+    try {
+        const { artworkId } = req.params;
+        // Fetch comments and sort by newest first
+        const cursor = commentsCollection.find({ artworkId }).sort({ createdAt: -1 });
+        const comments = await cursor.toArray();
+        
+        res.status(200).json(comments);
+    } catch (error) {
+        console.error("Error fetching comments:", error);
+        res.status(500).json({ error: "Failed to fetch comments" });
+    }
+});
+
+// PUT (Edit) an existing comment
+app.put("/api/comments/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { comment, userId } = req.body;
+
+        // Security check: Find the comment first to ensure the user owns it
+        const existingComment = await commentsCollection.findOne({ _id: new ObjectId(id) });
+        
+        if (!existingComment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+        if (existingComment.userId !== userId) {
+            return res.status(403).json({ error: "Unauthorized to edit this comment" });
+        }
+
+        const result = await commentsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { comment: comment, isEdited: true } }
+        );
+
+        res.status(200).json({ message: "Comment updated successfully" });
+    } catch (error) {
+        console.error("Error updating comment:", error);
+        res.status(500).json({ error: "Failed to update comment" });
+    }
+});
+
+// DELETE a comment
+app.delete("/api/comments/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId } = req.body; // Pass userId in body to verify ownership
+
+        const existingComment = await commentsCollection.findOne({ _id: new ObjectId(id) });
+        
+        if (!existingComment) {
+            return res.status(404).json({ error: "Comment not found" });
+        }
+        if (existingComment.userId !== userId) {
+            return res.status(403).json({ error: "Unauthorized to delete this comment" });
+        }
+
+        await commentsCollection.deleteOne({ _id: new ObjectId(id) });
+        res.status(200).json({ message: "Comment deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        res.status(500).json({ error: "Failed to delete comment" });
     }
 });
 
