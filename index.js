@@ -88,24 +88,37 @@ app.get("/api/artworks", async (req, res) => {
         if (req.query.artistId) query.artistId = req.query.artistId;
         if (req.query.status) query.status = req.query.status;
 
-      
         if (req.query.search) {
             query.$or = [
                 { title: { $regex: req.query.search, $options: 'i' } },
                 { artistName: { $regex: req.query.search, $options: 'i' } }
             ];
         }
-
-     
         if (req.query.category && req.query.category !== 'all') {
             query.category = req.query.category;
         }
 
-      
         let sortOption = { createdAt: -1 }; 
         if (req.query.sort === 'price_low') sortOption = { price: 1 };
         if (req.query.sort === 'price_high') sortOption = { price: -1 };
 
+        //pagination related 
+       if (req.query.page) {
+         
+            const page = parseInt(req.query.page) || 1;
+            const perPage = parseInt(req.query.perPage) || 3; 
+
+            const skip = (page - 1) * perPage;
+
+            const total = await artCollection.countDocuments({
+                status: "available",
+            });
+
+            const cursor = artCollection.find(query).sort(sortOption).skip(skip).limit(perPage);
+            const results = await cursor.toArray();
+            
+            return res.status(200).json({results, total});
+        }
      
         const cursor = artCollection.find(query).sort(sortOption);
         const results = await cursor.toArray();
