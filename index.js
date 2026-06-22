@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -26,6 +27,43 @@ const client = new MongoClient(uri, {
   }
 });
 
+    const JWKS = createRemoteJWKSet(new URL(`${process.env.CLIENT_URL}/api/auth/jwks`));
+
+    const verifyToken = async(req,res, next)=>{
+
+        const authHeader = req.headers.authorization;
+
+        console.log("Authorization Header:", authHeader); // Debugging log
+
+        if(!authHeader || !authHeader.startsWith("Bearer ")){
+            return res.status(401).json({error: "Unauthorized access"});
+        }
+
+        const token = authHeader.split(" ")[1];
+
+        if(!token){
+            return res.status(401).json({error: "Unauthorized access"});
+        }
+
+        try{
+            const {payload} = await jwtVerify(token, JWKS);
+            console.log(payload);
+
+            next();
+        }
+        catch(error)
+        {
+            console.error("Token verification failed:", error);
+            return res.status(401).json({error: "Unauthorized access"});
+        }
+
+
+
+    }
+
+
+
+
 async function run() {
   try {
     // Database and Collection definition
@@ -44,7 +82,7 @@ async function run() {
 
 
     // POST: Upload a new artwork
-    app.post("/api/artworks", async (req, res) => 
+    app.post("/api/artworks",  async (req, res) => 
     {
       try 
       {
@@ -132,7 +170,7 @@ app.get("/api/artworks", async (req, res) => {
 });
 
     
-    app.get("/api/artworks/:id", async (req, res) => {
+    app.get("/api/artworks/:id",verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         // Convert the string ID into a MongoDB ObjectId
@@ -289,7 +327,7 @@ app.get("/api/artworks", async (req, res) => {
 
   
 
-    app.get("/api/purchases", async(req,res)=>{
+    app.get("/api/purchases",verifyToken, async(req,res)=>{
 
         const query ={};
 
@@ -309,7 +347,7 @@ app.get("/api/artworks", async (req, res) => {
 
     //plans
 
-    app.get("/api/plans", async(req,res)=>{
+    app.get("/api/plans", verifyToken, async(req,res)=>{
 
         const query = {};
         if(req.query.plan_id){
@@ -364,7 +402,7 @@ app.get("/api/artworks", async (req, res) => {
 });
 
 
-  app.get("/api/users", async (req, res) => {
+  app.get("/api/users", verifyToken, async (req, res) => {
     try {
        
         const result = await usersCollection.find({})
@@ -431,7 +469,7 @@ app.post("/api/comments", async (req, res) => {
 });
 
 // GET comments for a specific artwork
-app.get("/api/comments/:artworkId", async (req, res) => {
+app.get("/api/comments/:artworkId", verifyToken, async (req, res) => {
     try {
         const { artworkId } = req.params;
         // Fetch comments and sort by newest first
@@ -496,13 +534,10 @@ app.delete("/api/comments/:id", async (req, res) => {
     }
 });
 
-
-
-
 // admin stats aggregation apis
 
 //user stats api.
-app.get("/api/admin/stats/users", async (req, res) => {
+app.get("/api/admin/stats/users", verifyToken, async (req, res) => {
     try {
         const totalUsers = await usersCollection.countDocuments({}); 
         const totalArtists = await usersCollection.countDocuments({ role: "artist" });
@@ -517,7 +552,7 @@ app.get("/api/admin/stats/users", async (req, res) => {
 });
 
 
-app.get("/api/admin/stats/artworks", async (req, res) => {
+app.get("/api/admin/stats/artworks", verifyToken, async (req, res) => {
     try {
         const pipeline = [
             { 
@@ -543,7 +578,7 @@ app.get("/api/admin/stats/artworks", async (req, res) => {
     }
 });
 
-app.get("/api/admin/stats/category-sales", async (req, res) => {
+app.get("/api/admin/stats/category-sales", verifyToken, async (req, res) => {
     try {
         const pipeline = [
             {
@@ -581,7 +616,7 @@ app.get("/api/admin/stats/category-sales", async (req, res) => {
 });
 
 
-app.get("/api/admin/stats/subscriptions", async (req, res) => {
+app.get("/api/admin/stats/subscriptions", verifyToken, async (req, res) => {
     try {
         const pipeline = [
             {
