@@ -49,6 +49,8 @@ const client = new MongoClient(uri, {
             const {payload} = await jwtVerify(token, JWKS);
             console.log(payload);
 
+            req.user = payload;
+
             next();
         }
         catch(error)
@@ -60,6 +62,28 @@ const client = new MongoClient(uri, {
 
 
     }
+
+    const verifyArtist = async(req,res,next)=>{
+
+        console.log(req);
+
+         console.log("Verifying artist role for user:", req.user); // Debugging log
+        const user = req.user;
+        if(user.role !== "artist"){
+            return res.status(403).json({error: "Forbidden: Artist access only"});
+        }
+        next();
+    }
+
+    const verifyAdmin = async(req,res,next)=>{
+        const user = req.user;
+        if(user.role !== "admin"){
+            return res.status(403).json({error: "Forbidden: Admin access only"});
+        }
+        next();
+    }
+
+    
 
 
 
@@ -82,7 +106,7 @@ async function run() {
 
 
     // POST: Upload a new artwork
-    app.post("/api/artworks",  async (req, res) => 
+    app.post("/api/artworks", verifyToken, verifyArtist,  async (req, res) => 
     {
       try 
       {
@@ -170,7 +194,7 @@ app.get("/api/artworks", async (req, res) => {
 });
 
     
-    app.get("/api/artworks/:id",verifyToken, async (req, res) => {
+    app.get("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
         // Convert the string ID into a MongoDB ObjectId
@@ -275,7 +299,7 @@ app.get("/api/artworks", async (req, res) => {
     //     }
     // });
 
-    app.post("/api/purchases", async (req, res) => {
+    app.post("/api/purchases",  async (req, res) => {
     try {
         const purchase = req.body;
 
@@ -359,7 +383,7 @@ app.get("/api/artworks", async (req, res) => {
     })
 
     //subscriptions
-    app.post("/api/subscriptions", async(req,res)=>{
+    app.post("/api/subscriptions",  async(req,res)=>{
 
         const data = req.body;
 
@@ -391,7 +415,7 @@ app.get("/api/artworks", async (req, res) => {
 
     })
 
-    app.get("/api/subscriptions", async (req, res) => {
+    app.get("/api/subscriptions", verifyToken, async (req, res) => {
     try {
         const subscriptions = await subscriptionCollection.find({}).sort({ createdAt: -1 }).toArray();
         res.status(200).json(subscriptions);
@@ -402,7 +426,7 @@ app.get("/api/artworks", async (req, res) => {
 });
 
 
-  app.get("/api/users", verifyToken, async (req, res) => {
+  app.get("/api/users", verifyToken, verifyAdmin, async (req, res) => {
     try {
        
         const result = await usersCollection.find({})
@@ -417,7 +441,7 @@ app.get("/api/artworks", async (req, res) => {
 });
 
 
-    app.patch("/api/users/:id", async (req, res) => {
+    app.patch("/api/users/:id",verifyToken, async (req, res) => {
     try {
         const userId = req.params.id;
         const updates = {
@@ -445,7 +469,7 @@ app.get("/api/artworks", async (req, res) => {
 //comments section
 
 // POST a new comment
-app.post("/api/comments", async (req, res) => {
+app.post("/api/comments",  async (req, res) => {
     try {
         const { artworkId, userId, userName, userImageUrl, comment } = req.body;
 
@@ -469,7 +493,7 @@ app.post("/api/comments", async (req, res) => {
 });
 
 // GET comments for a specific artwork
-app.get("/api/comments/:artworkId", verifyToken, async (req, res) => {
+app.get("/api/comments/:artworkId", async (req, res) => {
     try {
         const { artworkId } = req.params;
         // Fetch comments and sort by newest first
@@ -484,7 +508,7 @@ app.get("/api/comments/:artworkId", verifyToken, async (req, res) => {
 });
 
 // PUT (Edit) an existing comment
-app.put("/api/comments/:id", async (req, res) => {
+app.put("/api/comments/:id",  async (req, res) => {
     try {
         const { id } = req.params;
         const { comment, userId } = req.body;
@@ -537,7 +561,7 @@ app.delete("/api/comments/:id", async (req, res) => {
 // admin stats aggregation apis
 
 //user stats api.
-app.get("/api/admin/stats/users", verifyToken, async (req, res) => {
+app.get("/api/admin/stats/users",verifyToken, verifyAdmin,  async (req, res) => {
     try {
         const totalUsers = await usersCollection.countDocuments({}); 
         const totalArtists = await usersCollection.countDocuments({ role: "artist" });
@@ -552,7 +576,7 @@ app.get("/api/admin/stats/users", verifyToken, async (req, res) => {
 });
 
 
-app.get("/api/admin/stats/artworks", verifyToken, async (req, res) => {
+app.get("/api/admin/stats/artworks",verifyToken, verifyAdmin,  async (req, res) => {
     try {
         const pipeline = [
             { 
@@ -578,7 +602,7 @@ app.get("/api/admin/stats/artworks", verifyToken, async (req, res) => {
     }
 });
 
-app.get("/api/admin/stats/category-sales", verifyToken, async (req, res) => {
+app.get("/api/admin/stats/category-sales",verifyToken, verifyAdmin,  async (req, res) => {
     try {
         const pipeline = [
             {
@@ -616,7 +640,7 @@ app.get("/api/admin/stats/category-sales", verifyToken, async (req, res) => {
 });
 
 
-app.get("/api/admin/stats/subscriptions", verifyToken, async (req, res) => {
+app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, res) => {
     try {
         const pipeline = [
             {
