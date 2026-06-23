@@ -550,7 +550,7 @@ app.post("/api/comments", verifyToken, async (req, res) => {
 app.get("/api/comments/:artworkId", async (req, res) => {
     try {
         const { artworkId } = req.params;
-        // Fetch comments and sort by newest first
+
         const cursor = commentsCollection.find({ artworkId }).sort({ createdAt: -1 });
         const comments = await cursor.toArray();
         
@@ -567,7 +567,7 @@ app.put("/api/comments/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
         const { comment, userId } = req.body;
 
-        // Security check: Find the comment first to ensure the user owns it
+       
         const existingComment = await commentsCollection.findOne({ _id: new ObjectId(id) });
         
         if (!existingComment) {
@@ -593,7 +593,7 @@ app.put("/api/comments/:id", verifyToken, async (req, res) => {
 app.delete("/api/comments/:id", verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { userId } = req.body; // Pass userId in body to verify ownership
+        const { userId } = req.body; 
 
         const existingComment = await commentsCollection.findOne({ _id: new ObjectId(id) });
         
