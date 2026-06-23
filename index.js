@@ -213,7 +213,7 @@ app.get("/api/artworks", async (req, res) => {
     });
 
 
-    app.patch("/api/artworks/:id", async (req, res) => {
+    app.patch("/api/artworks/:id",verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const updatedData = req.body;
@@ -237,7 +237,10 @@ app.get("/api/artworks", async (req, res) => {
     });
 
   
-    app.delete("/api/artworks/:id", async (req, res) => {
+    app.delete("/api/artworks/:id",verifyToken, async (req, res) => {
+
+        // jehetu admin + artist duijon e delete korbe, tai sudhu verifyToken use korlam apatoto, pore admin er 
+        // alada api banabo.
       try {
         const id = req.params.id;
         
@@ -299,7 +302,7 @@ app.get("/api/artworks", async (req, res) => {
     //     }
     // });
 
-    app.post("/api/purchases",  async (req, res) => {
+    app.post("/api/purchases",verifyToken,  async (req, res) => {
     try {
         const purchase = req.body;
 
@@ -383,7 +386,7 @@ app.get("/api/artworks", async (req, res) => {
     })
 
     //subscriptions
-    app.post("/api/subscriptions",  async(req,res)=>{
+    app.post("/api/subscriptions", verifyToken, async(req,res)=>{
 
         const data = req.body;
 
@@ -415,7 +418,7 @@ app.get("/api/artworks", async (req, res) => {
 
     })
 
-    app.get("/api/subscriptions", verifyToken, async (req, res) => {
+    app.get("/api/subscriptions",verifyToken,  async (req, res) => {
     try {
         const subscriptions = await subscriptionCollection.find({}).sort({ createdAt: -1 }).toArray();
         res.status(200).json(subscriptions);
@@ -441,14 +444,26 @@ app.get("/api/artworks", async (req, res) => {
 });
 
 
-    app.patch("/api/users/:id",verifyToken, async (req, res) => {
+ app.patch("/api/users/:id", async (req, res) => {
     try {
         const userId = req.params.id;
-        const updates = {
-            name: req.body.name,
-            image:req.body.imageUrl
-        }
         
+        // 1. Create an empty object to hold our dynamic updates
+        const updates = {};
+
+        // 2. Only add fields to the update object if they exist in the request body
+        if (req.body.name) updates.name = req.body.name;
+        if (req.body.imageUrl) updates.image = req.body.imageUrl;
+        if (req.body.role) updates.role = req.body.role; // <-- THIS FIXES YOUR ROLE ISSUE
+
+        // Optional safety check: Ensure we actually have something to update
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: "No valid fields provided for update" });
+        }
+
+        console.log("Applying updates to DB:", updates); // Debugging log
+
+        // 3. Apply the updates to the database
         const result = await usersCollection.updateOne(
             { _id: new ObjectId(userId) },
             { $set: updates }
@@ -456,13 +471,13 @@ app.get("/api/artworks", async (req, res) => {
 
         res.status(200).json({ 
             success: true, 
-            message: "Profile updated successfully",
+            message: "User updated successfully",
             modifiedCount: result.modifiedCount
         });
 
     } catch (error) {
-        console.error("Error updating profile:", error);
-        res.status(500).json({ error: "Failed to update profile" });
+        console.error("Error updating user:", error);
+        res.status(500).json({ error: "Failed to update user" });
     }
 });
 
@@ -677,7 +692,7 @@ app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, r
 
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } 
   finally 
