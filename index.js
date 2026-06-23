@@ -136,19 +136,34 @@ async function run() {
             query.category = req.query.category;
         }
 
-        let sortOption = { createdAt: -1 }; 
+       
+        if (req.query.minPrice || req.query.maxPrice) 
+        {
+            query.price = {};
+
+
+            if (req.query.minPrice) 
+            {
+                query.price.$gte = Number(req.query.minPrice);
+            }
+
+            if (req.query.maxPrice){
+                query.price.$lte = Number(req.query.maxPrice);
+            }
+        }
+
+        let sortOption = { createdAt:-1}; 
         if (req.query.sort === 'price_low') sortOption = { price: 1 };
         if (req.query.sort === 'price_high') sortOption = { price: -1 };
 
-        //pagination related 
-       if (req.query.page) {
-         
+        if (req.query.page) 
+        {
             const page = parseInt(req.query.page) || 1;
             const perPage = parseInt(req.query.perPage) || 3; 
-
             const skip = (page - 1) * perPage;
 
-            const total = await artCollection.countDocuments();
+
+            const total = await artCollection.countDocuments(query); 
 
             const cursor = artCollection.find(query).sort(sortOption).skip(skip).limit(perPage);
             const results = await cursor.toArray();
@@ -158,16 +173,15 @@ async function run() {
      
         const cursor = artCollection.find(query).sort(sortOption);
         const results = await cursor.toArray();
-        
         res.status(200).json(results);
 
     } catch (error) {
         console.error("Error fetching artworks:", error);
         res.status(500).json({ error: "Failed to fetch artworks" });
     }
-    });
+});
 
-    
+
     app.get("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
