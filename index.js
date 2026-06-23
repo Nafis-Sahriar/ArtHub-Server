@@ -7,16 +7,16 @@ const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
+
 app.use(express.json());
 app.use(cors());
 
-// Root Route
+
 app.get("/", (req, res) => {
   res.send("ArtHub Server is running.......");
 });
 
-// MongoDB Connection URI
+
 const uri = process.env.MONGO_DB_URI;
 
 const client = new MongoClient(uri, {
@@ -33,7 +33,7 @@ const client = new MongoClient(uri, {
 
         const authHeader = req.headers.authorization;
 
-        console.log("Authorization Header:", authHeader); // Debugging log
+        // console.log("Authorization Header:", authHeader); 
 
         if(!authHeader || !authHeader.startsWith("Bearer ")){
             return res.status(401).json({error: "Unauthorized access"});
@@ -47,7 +47,7 @@ const client = new MongoClient(uri, {
 
         try{
             const {payload} = await jwtVerify(token, JWKS);
-            console.log(payload);
+            // console.log(payload);
 
             req.user = payload;
 
@@ -65,9 +65,9 @@ const client = new MongoClient(uri, {
 
     const verifyArtist = async(req,res,next)=>{
 
-        console.log(req);
+        // console.log(req);
 
-         console.log("Verifying artist role for user:", req.user); // Debugging log
+         // console.log("Verifying artist role for user:", req.user); 
         const user = req.user;
         if(user.role !== "artist"){
             return res.status(403).json({error: "Forbidden: Artist access only"});
@@ -90,13 +90,13 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Database and Collection definition
+    
     const database = client.db("arthubdb");
     const usersCollection = database.collection("user");
-    const artCollection = database.collection("artworks"); // Changed to match frontend
-    const artPurchaseCollection = database.collection("purchases"); // New collection for purchases
-    const planCollection = database.collection("plans"); // New collection for subscription plans
-    const subscriptionCollection = database.collection("subscriptions"); // New collection for user subscriptions
+    const artCollection = database.collection("artworks"); 
+    const artPurchaseCollection = database.collection("purchases"); 
+    const planCollection = database.collection("plans"); 
+    const subscriptionCollection = database.collection("subscriptions"); 
     const commentsCollection = database.collection("comments"); 
 
     // await client.connect();
@@ -121,29 +121,9 @@ async function run() {
       }
     });
 
-    // GET: Fetch all artworks for the public gallery
-   
-// app.get("/api/artworks", async(req,res)=>{
+    
 
-//         const query = {};
-
-//         if(req.query.artistId){
-//             query.artistId = req.query.artistId;
-//         }
-//         if(req.query.status)
-//         {
-//             query.status = req.query.status;
-//         }
-
-//         const cursor = artCollection.find(query);
-//         const result = await cursor.toArray();
-//         res.json(result);
-
-//     });
-
-
-
-app.get("/api/artworks", async (req, res) => {
+    app.get("/api/artworks", async (req, res) => {
     try {
         const query = {};
 
@@ -191,7 +171,7 @@ app.get("/api/artworks", async (req, res) => {
         console.error("Error fetching artworks:", error);
         res.status(500).json({ error: "Failed to fetch artworks" });
     }
-});
+    });
 
     
     app.get("/api/artworks/:id", async (req, res) => {
@@ -263,45 +243,6 @@ app.get("/api/artworks", async (req, res) => {
 
     // Artwork Purchase APIs; 
 
-    // app.post("/api/purchases", async (req, res) => {
-    //     try {
-    //         const purchase = req.body;
-
-            
-    //         if (!purchase.artworkId) {
-    //             return res.status(400).json({ error: "artworkId is required" });
-    //         }
-
-      
-    //         const newPurchase = {
-    //             ...purchase,
-    //             purchaseDate: new Date()
-    //         };
-
-       
-    //         const purchaseResult = await artPurchaseCollection.insertOne(newPurchase);
-
-  
-    //         const updateResult = await artCollection.updateOne(
-    //             { _id: new ObjectId(purchase.artworkId) },
-    //             { $set: { status: "sold" } }
-    //         );
-
-    //         if (updateResult.matchedCount === 0) {
-    //             return res.status(404).json({ error: "Artwork not found" });
-    //         }
-
-    //         res.status(201).json({ 
-    //             success: true, 
-    //             purchaseId: purchaseResult.insertedId 
-    //         });
-
-    //     } catch (error) {
-    //         console.error("Error recording purchase:", error);
-    //         res.status(500).json({ error: "Failed to record purchase" });
-    //     }
-    // });
-
     app.post("/api/purchases",verifyToken,  async (req, res) => {
     try {
         const purchase = req.body;
@@ -352,7 +293,6 @@ app.get("/api/artworks", async (req, res) => {
 });
 
 
-  
 
     app.get("/api/purchases",verifyToken, async(req,res)=>{
 
@@ -372,7 +312,7 @@ app.get("/api/artworks", async (req, res) => {
     })
 
 
-    //plans
+    //plans and Subscription Related APIs
 
     app.get("/api/plans", verifyToken, async(req,res)=>{
 
@@ -483,7 +423,7 @@ app.get("/api/artworks", async (req, res) => {
 
 //comments section
 
-// POST a new comment
+
 app.post("/api/comments",  async (req, res) => {
     try {
         const { artworkId, userId, userName, userImageUrl, comment } = req.body;
@@ -507,7 +447,7 @@ app.post("/api/comments",  async (req, res) => {
     }
 });
 
-// GET comments for a specific artwork
+
 app.get("/api/comments/:artworkId", async (req, res) => {
     try {
         const { artworkId } = req.params;
@@ -522,7 +462,7 @@ app.get("/api/comments/:artworkId", async (req, res) => {
     }
 });
 
-// PUT (Edit) an existing comment
+
 app.put("/api/comments/:id",  async (req, res) => {
     try {
         const { id } = req.params;
@@ -550,7 +490,7 @@ app.put("/api/comments/:id",  async (req, res) => {
     }
 });
 
-// DELETE a comment
+
 app.delete("/api/comments/:id", async (req, res) => {
     try {
         const { id } = req.params;
@@ -573,9 +513,7 @@ app.delete("/api/comments/:id", async (req, res) => {
     }
 });
 
-// admin stats aggregation apis
 
-//user stats api.
 app.get("/api/admin/stats/users",verifyToken, verifyAdmin,  async (req, res) => {
     try {
         const totalUsers = await usersCollection.countDocuments({}); 
@@ -686,13 +624,6 @@ app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, r
 });
 
 
-
-
-
-
-
-    // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } 
   finally 
