@@ -117,70 +117,66 @@ async function run() {
       }
     });
 
-    
+
 
     app.get("/api/artworks", async (req, res) => {
-    try {
-        const query = {};
+            try {
+                const query = {};
 
-        if (req.query.artistId) query.artistId = req.query.artistId;
-        if (req.query.status) query.status = req.query.status;
+                if (req.query.artistId) query.artistId = req.query.artistId;
+                if (req.query.status) query.status = req.query.status;
 
-        if (req.query.search) {
-            query.$or = [
-                { title: { $regex: req.query.search, $options: 'i' } },
-                { artistName: { $regex: req.query.search, $options: 'i' } }
-            ];
-        }
-        if (req.query.category && req.query.category !== 'all') {
-            query.category = req.query.category;
-        }
+                if (req.query.search) {
+                    query.$or = [
+                        { title: { $regex: req.query.search, $options: 'i' } },
+                        { artistName: { $regex: req.query.search, $options: 'i' } }
+                    ];
+                }
+                if (req.query.category && req.query.category !== 'all') {
+                    query.category = req.query.category;
+                }
 
-       
-        if (req.query.minPrice || req.query.maxPrice) 
-        {
-            query.price = {};
+                if (req.query.minPrice || req.query.maxPrice) {
+                    query.price = {};
 
+                    if (req.query.minPrice) {
+                        query.price.$gte = Number(req.query.minPrice); // FIXED: Changed $get to $gte
+                    }
 
-            if (req.query.minPrice) 
-            {
-                query.price.$gte = Number(req.query.minPrice);
-            }
+                    if (req.query.maxPrice) {
+                        query.price.$lte = Number(req.query.maxPrice);
+                    }
+                }
 
-            if (req.query.maxPrice){
-                query.price.$lte = Number(req.query.maxPrice);
-            }
-        }
+                // Multi-Key Sorting: Groups "available" first, then filters by date/price
+                let sortOption = { status: 1, createdAt: -1 }; 
+                if (req.query.sort === 'price_low') sortOption = { status: 1, price: 1 };
+                if (req.query.sort === 'price_high') sortOption = { status: 1, price: -1 };
 
-        let sortOption = { createdAt:-1}; 
-        if (req.query.sort === 'price_low') sortOption = { price: 1 };
-        if (req.query.sort === 'price_high') sortOption = { price: -1 };
+                // Pagination Track
+                if (req.query.page) {
+                    const page = parseInt(req.query.page) || 1;
+                    const perPage = parseInt(req.query.perPage) || 3; 
+                    const skip = (page - 1) * perPage;
 
-        if (req.query.page) 
-        {
-            const page = parseInt(req.query.page) || 1;
-            const perPage = parseInt(req.query.perPage) || 3; 
-            const skip = (page - 1) * perPage;
+                    const total = await artCollection.countDocuments(query); 
 
-
-            const total = await artCollection.countDocuments(query); 
-
-            const cursor = artCollection.find(query).sort(sortOption).skip(skip).limit(perPage);
-            const results = await cursor.toArray();
+                    const cursor = artCollection.find(query).sort(sortOption).skip(skip).limit(perPage);
+                    const results = await cursor.toArray();
+                    
+                    return res.status(200).json({ results, total });
+                }
             
-            return res.status(200).json({results, total});
-        }
-     
-        const cursor = artCollection.find(query).sort(sortOption);
-        const results = await cursor.toArray();
-        res.status(200).json(results);
+                // Non-pagination Track
+                const cursor = artCollection.find(query).sort(sortOption);
+                const results = await cursor.toArray();
+                res.status(200).json(results);
 
-    } catch (error) {
-        console.error("Error fetching artworks:", error);
-        res.status(500).json({ error: "Failed to fetch artworks" });
-    }
-});
-
+            } catch (error) {
+                console.error("Error fetching artworks:", error);
+                res.status(500).json({ error: "Failed to fetch artworks" });
+            }
+        });
 
     app.get("/api/artworks/:id", async (req, res) => {
       try {
@@ -735,6 +731,12 @@ app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, r
         res.status(500).json({ error: "Failed to fetch subscription stats" });
     }
 });
+
+
+// extra feature I will develop
+//1. Purchase for artist, as an artist , a user can buy things from other artists.
+
+
 
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
