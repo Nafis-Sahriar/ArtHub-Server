@@ -94,6 +94,7 @@ async function run() {
     const planCollection = database.collection("plans"); 
     const subscriptionCollection = database.collection("subscriptions"); 
     const commentsCollection = database.collection("comments"); 
+    const supportTicketsCollection = database.collection("support");
 
     // await client.connect();
 
@@ -140,7 +141,7 @@ async function run() {
                     query.price = {};
 
                     if (req.query.minPrice) {
-                        query.price.$gte = Number(req.query.minPrice); // FIXED: Changed $get to $gte
+                        query.price.$gte = Number(req.query.minPrice); 
                     }
 
                     if (req.query.maxPrice) {
@@ -148,12 +149,12 @@ async function run() {
                     }
                 }
 
-                // Multi-Key Sorting: Groups "available" first, then filters by date/price
+                
                 let sortOption = { status: 1, createdAt: -1 }; 
                 if (req.query.sort === 'price_low') sortOption = { status: 1, price: 1 };
                 if (req.query.sort === 'price_high') sortOption = { status: 1, price: -1 };
 
-                // Pagination Track
+              
                 if (req.query.page) {
                     const page = parseInt(req.query.page) || 1;
                     const perPage = parseInt(req.query.perPage) || 3; 
@@ -167,7 +168,7 @@ async function run() {
                     return res.status(200).json({ results, total });
                 }
             
-                // Non-pagination Track
+           
                 const cursor = artCollection.find(query).sort(sortOption);
                 const results = await cursor.toArray();
                 res.status(200).json(results);
@@ -733,8 +734,86 @@ app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, r
 });
 
 
-// extra feature I will develop
-//1. Purchase for artist, as an artist , a user can buy things from other artists.
+
+// extra feature api, I will implement a support ticket system both for user and artist here.
+
+app.post("/api/support",verifyToken, async (req, res) => {
+    try {
+        const ticketData = req.body;
+        
+       
+        ticketData.createdAt = new Date().toISOString();
+        ticketData.status = "pending"; 
+        
+        const result = await supportTicketsCollection.insertOne(ticketData);
+        res.status(201).json({ success: true, insertedId: result.insertedId });
+    } catch (error) {
+        console.error("Error creating support ticket:", error);
+        res.status(500).json({ success: false, message: "Failed to create support ticket." });
+    }
+});
+
+
+app.get("/api/support/:email",verifyToken, async (req, res) => {
+    try {
+
+        const email = req.params.email;
+
+        const tickets = await supportTicketsCollection.find({ email: email }).sort({ createdAt: -1 }).toArray();
+        res.status(200).json(tickets);
+    } catch (error) {
+        console.error("Error fetching tickets:", error);
+        res.status(500).json({ error: "Failed to fetch tickets." });
+    }
+});
+
+// support handling by admin
+
+// this api will be used by admin to fetch all the support ticket.
+
+app.get("/api/support/admin/all",verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        
+        const tickets = await supportTicketsCollection
+            .find()
+            .sort({ status: 1, createdAt: -1 })
+            .toArray();
+            
+        res.status(200).json(tickets);
+    } catch (error) {
+        console.error("Error fetching all tickets:", error);
+        res.status(500).json({ error: "Failed to fetch tickets." });
+    }
+});
+
+// this api will be used by admin to update the status.
+
+app.patch("/api/support/:id",verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const ticketId = req.params.id;
+        const { status } = req.body;
+
+        const filter = { _id: new ObjectId(ticketId) };
+        const updateDoc = {
+            $set: { 
+                status: status,
+                resolvedAt: status === "resolved" ? new Date().toISOString() : null 
+            }
+        };
+        const result = await supportTicketsCollection.updateOne(filter, updateDoc);
+
+        if (result.modifiedCount > 0) {
+            res.status(200).json({ success: true, message: "Ticket updated successfully" });
+        } else {
+            res.status(404).json({ success: false, message: "Ticket not found or status unchanged" });
+        }
+    } catch (error) {
+        console.error("Error updating ticket:", error);
+        res.status(500).json({ success: false, error: "Failed to update ticket status." });
+    }
+});
+
+
 
 
 
