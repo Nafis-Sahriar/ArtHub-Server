@@ -148,9 +148,7 @@ async function run() {
 
             const skip = (page - 1) * perPage;
 
-            const total = await artCollection.countDocuments({
-                status: "available",
-            });
+            const total = await artCollection.countDocuments();
 
             const cursor = artCollection.find(query).sort(sortOption).skip(skip).limit(perPage);
             const results = await cursor.toArray();
@@ -525,7 +523,7 @@ app.get("/api/most-expensive-art", async (req, res) => {
 //comments section
 
 
-app.post("/api/comments",  async (req, res) => {
+app.post("/api/comments", verifyToken, async (req, res) => {
     try {
         const { artworkId, userId, userName, userImageUrl, comment } = req.body;
 
@@ -564,7 +562,7 @@ app.get("/api/comments/:artworkId", async (req, res) => {
 });
 
 
-app.put("/api/comments/:id",  async (req, res) => {
+app.put("/api/comments/:id", verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { comment, userId } = req.body;
@@ -592,7 +590,7 @@ app.put("/api/comments/:id",  async (req, res) => {
 });
 
 
-app.delete("/api/comments/:id", async (req, res) => {
+app.delete("/api/comments/:id", verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { userId } = req.body; // Pass userId in body to verify ownership
