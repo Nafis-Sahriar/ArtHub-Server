@@ -83,10 +83,6 @@ const client = new MongoClient(uri, {
         next();
     }
 
-    
-
-
-
 
 async function run() {
   try {
@@ -177,7 +173,7 @@ async function run() {
     app.get("/api/artworks/:id", async (req, res) => {
       try {
         const id = req.params.id;
-        // Convert the string ID into a MongoDB ObjectId
+       
         const query = { _id: new ObjectId(id) }; 
         const artwork = await artCollection.findOne(query);
         
@@ -239,9 +235,114 @@ async function run() {
       }
     });
 
+    // for featured section and homepage, these are public , no need to verify Token.
+   
+app.get("/api/featuredArtworks", async (req, res) => {
+    try {
+      
+        const pipeline = [
+        
+            { $match: { status: 'available' } },
+            
+          
+            { $sample: { size: 6 } }
+        ];
+
+      
+        const cursor = artCollection.aggregate(pipeline);
+        const featuredArtworks = await cursor.toArray();
+        
+        res.status(200).json(featuredArtworks);
+    } catch (error) {
+        console.error("Error fetching featured artworks:", error);
+        res.status(500).json({ error: "Failed to fetch featured artworks" });
+    }
+});
 
 
-    // Artwork Purchase APIs; 
+app.get("/api/top-artists", async (req, res) => {
+    try {
+        const pipeline = [
+         
+            {
+                $group: {
+                    _id: "$artistId",
+                    totalSales: { $sum: 1 } 
+                }
+            },
+         
+            { $sort: { totalSales: -1 } },
+            
+            { $limit: 3 },
+            
+       
+            {
+                $addFields: {
+                    artistObjectId: { $toObjectId: "$_id" }
+                }
+            },
+            
+            {
+                $lookup: {
+                    from: "user", 
+                    localField: "artistObjectId",
+                    foreignField: "_id",
+                    as: "artistDetails"
+                }
+            },
+            
+          
+            { $unwind: "$artistDetails" },
+            
+        
+            {
+                $project: {
+                    _id: 0,
+                    artistId: "$_id",
+                    name: "$artistDetails.name",
+                    imageUrl: "$artistDetails.image",
+                    totalSales: 1
+                }
+            }
+        ];
+
+        
+        const topArtists = await artPurchaseCollection.aggregate(pipeline).toArray();
+        
+        res.status(200).json(topArtists);
+
+    } catch (error) {
+        console.error("Error fetching top artists:", error);
+        res.status(500).json({ error: "Failed to fetch top artists" });
+    }
+});
+
+
+app.get("/api/most-expensive-art", async (req, res) => {
+    try {
+        
+        const mostExpensiveArray = await artCollection
+            .find({ status: 'available' }) 
+            .sort({ price: -1 }) 
+            .limit(1)
+            .toArray();
+
+     
+        if (mostExpensiveArray.length === 0) {
+            return res.status(404).json({ message: "No artworks found." });
+        }
+
+      
+        res.status(200).json(mostExpensiveArray[0]);
+
+    } catch (error) {
+        console.error("Error fetching most expensive art:", error);
+        res.status(500).json({ error: "Failed to fetch most expensive art" });
+    }
+});
+
+
+  
 
     app.post("/api/purchases",verifyToken,  async (req, res) => {
     try {
