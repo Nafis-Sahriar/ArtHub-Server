@@ -100,6 +100,10 @@ async function run() {
     const communityPostCollection = database.collection("community_posts");
     const communityCommentCollection = database.collection("community_comments");
 
+    // for wishlist
+
+    const wishlistCollection = database.collection("wishlists");
+
     // await client.connect();
 
     
@@ -821,6 +825,11 @@ app.patch("/api/support/:id",verifyToken, verifyAdmin, async (req, res) => {
 });
 
 
+// wishlist APIs
+
+
+
+
 // extra Feature - 2 - I will implement A Community Forum where users and artists can discuss and share ideas.
 
 // APIs I will need,
@@ -962,6 +971,95 @@ app.patch("/api/community/posts/:postId/like", async (req, res) => {
         res.status(500).json({ success: false, error: "Failed to update like status." });
     }
 });
+
+// Wishlist APIs
+
+app.post("/api/wishlist/toggle", async (req, res) => {
+    try {
+        const { userId, artworkId } = req.body;
+        
+        if (!userId || !artworkId) {
+            return res.status(400).json({ success: false, message: "Missing userId or artworkId" });
+        }
+
+        
+        const query = { userId, artworkId };
+        const existingRecord = await wishlistCollection.findOne(query);
+
+        if (existingRecord) 
+        {
+            
+            await wishlistCollection.deleteOne(query);
+            res.status(200).json({ success: true, isWishlisted: false, message: "Removed from wishlist" });
+        } 
+        else 
+        {
+            
+            await wishlistCollection.insertOne({ 
+                ...query, 
+                createdAt: new Date().toISOString() 
+            });
+
+            res.status(200).json({ success: true, isWishlisted: true, message: "Added to wishlist" });
+        }
+
+    } 
+    catch (error) 
+    {
+        console.error("Toggle Wishlist Error:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
+    }
+});
+
+
+app.get("/api/wishlist/check/:artworkId", async (req, res) => {
+    try {
+        const { artworkId } = req.params;
+        const { userId } = req.query; 
+
+        if (!userId) {
+            return res.status(200).json({ isWishlisted: false });
+        }
+
+        const existingRecord = await wishlistCollection.findOne({ userId, artworkId });
+        
+        
+        res.status(200).json({ isWishlisted: !!existingRecord });
+    } catch (error) {
+        console.error("Check Wishlist Error:", error);
+        res.status(500).json({ error: "Failed to check status" });
+    }
+});
+
+app.get("/api/wishlist/user/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+      
+        const pipeline = [
+            { $match: { userId: userId } },
+            
+            { $addFields:{ artworkObjId: { $toObjectId: "$artworkId"}} },
+            {
+                $lookup: {
+                    from: "artworks", 
+                    localField: "artworkObjId",
+                    foreignField: "_id",
+                    as: "artworkDetails"
+                }
+            },
+            { $unwind: "$artworkDetails" }, 
+            { $sort: { createdAt: -1 } } 
+        ];
+
+        const userWishlist = await wishlistCollection.aggregate(pipeline).toArray();
+        res.status(200).json(userWishlist);
+    } catch (error) {
+        console.error("Get Wishlist Error:", error);
+        res.status(500).json({ error: "Failed to fetch wishlist" });
+    }
+});
+
+
 
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
