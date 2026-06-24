@@ -47,7 +47,7 @@ const client = new MongoClient(uri, {
 
         try{
             const {payload} = await jwtVerify(token, JWKS);
-            // console.log(payload);
+            console.log(payload);
 
             req.user = payload;
 
@@ -448,7 +448,7 @@ app.get("/api/most-expensive-art", async (req, res) => {
 
         const data = req.body;
 
-        console.log("Received subscription data:", data);
+        // console.log("Received subscription data:", data);
         const subsInfo={
             ...data,
             createdAt: new Date()
@@ -519,7 +519,7 @@ app.get("/api/most-expensive-art", async (req, res) => {
             return res.status(400).json({ error: "No valid fields provided for update" });
         }
 
-        console.log("Applying updates to DB:", updates); // Debugging log
+        // console.log("Applying updates to DB:", updates); // Debugging log
 
         // 3. Apply the updates to the database
         const result = await usersCollection.updateOne(
@@ -862,7 +862,7 @@ app.get("/api/community/posts", async (req, res) => {
 });
 
 
-app.post("/api/community/posts", async (req, res) => {
+app.post("/api/community/posts",verifyToken, async (req, res) => {
     try {
         const postData = req.body;
         
@@ -897,7 +897,7 @@ app.get("/api/community/posts/:postId/comments", async (req, res) => {
 });
 
 
-app.post("/api/community/posts/:postId/comments", async (req, res) => {
+app.post("/api/community/posts/:postId/comments",verifyToken, async (req, res) => {
     try {
         const commentData = req.body;
         
@@ -915,7 +915,7 @@ app.post("/api/community/posts/:postId/comments", async (req, res) => {
 });
 
 
-app.delete("/api/community/posts/:postId", async (req, res) => {
+app.delete("/api/community/posts/:postId",verifyToken, async (req, res) => {
     try {
         const { postId } = req.params;
         const filter = { _id: new ObjectId(postId) };
@@ -940,7 +940,7 @@ app.delete("/api/community/posts/:postId", async (req, res) => {
 });
 
 
-app.patch("/api/community/posts/:postId/like", async (req, res) => {
+app.patch("/api/community/posts/:postId/like",verifyToken, async (req, res) => {
     try {
         const { postId } = req.params;
         const { userId } = req.body; 
@@ -1056,6 +1056,17 @@ app.get("/api/wishlist/user/:userId", async (req, res) => {
     } catch (error) {
         console.error("Get Wishlist Error:", error);
         res.status(500).json({ error: "Failed to fetch wishlist" });
+    }
+});
+
+// GET WISHLIST COUNT ONLY
+app.get("/api/wishlist/count/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const count = await wishlistCollection.countDocuments({ userId });
+        res.status(200).json({ count });
+    } catch (error) {
+        res.status(500).json({ count: 0 });
     }
 });
 
