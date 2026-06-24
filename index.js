@@ -974,7 +974,7 @@ app.patch("/api/community/posts/:postId/like",verifyToken, async (req, res) => {
 
 // Wishlist APIs
 
-app.post("/api/wishlist/toggle", async (req, res) => {
+app.post("/api/wishlist/toggle", verifyToken, async (req, res) => {
     try {
         const { userId, artworkId } = req.body;
         
@@ -1012,7 +1012,7 @@ app.post("/api/wishlist/toggle", async (req, res) => {
 });
 
 
-app.get("/api/wishlist/check/:artworkId", async (req, res) => {
+app.get("/api/wishlist/check/:artworkId",verifyToken, async (req, res) => {
     try {
         const { artworkId } = req.params;
         const { userId } = req.query; 
@@ -1031,7 +1031,7 @@ app.get("/api/wishlist/check/:artworkId", async (req, res) => {
     }
 });
 
-app.get("/api/wishlist/user/:userId", async (req, res) => {
+app.get("/api/wishlist/user/:userId",verifyToken, async (req, res) => {
     try {
         const { userId } = req.params;
       
@@ -1060,7 +1060,7 @@ app.get("/api/wishlist/user/:userId", async (req, res) => {
 });
 
 // GET WISHLIST COUNT ONLY
-app.get("/api/wishlist/count/:userId", async (req, res) => {
+app.get("/api/wishlist/count/:userId",verifyToken, async (req, res) => {
     try {
         const { userId } = req.params;
         const count = await wishlistCollection.countDocuments({ userId });
