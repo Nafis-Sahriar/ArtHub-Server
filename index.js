@@ -96,6 +96,10 @@ async function run() {
     const commentsCollection = database.collection("comments"); 
     const supportTicketsCollection = database.collection("support");
 
+    // For Community Forum
+    const communityPostCollection = database.collection("community_posts");
+    const communityCommentCollection = database.collection("community_comments");
+
     // await client.connect();
 
     
@@ -531,6 +535,9 @@ app.get("/api/most-expensive-art", async (req, res) => {
     }
 });
 
+
+
+
 //comments section
 
 
@@ -735,7 +742,7 @@ app.get("/api/admin/stats/subscriptions",verifyToken, verifyAdmin, async (req, r
 
 
 
-// extra feature api, I will implement a support ticket system both for user and artist here.
+// extra feature - 1  I will implement a support ticket system both for user and artist here.
 
 app.post("/api/support",verifyToken, async (req, res) => {
     try {
@@ -814,8 +821,147 @@ app.patch("/api/support/:id",verifyToken, verifyAdmin, async (req, res) => {
 });
 
 
+// extra Feature - 2 - I will implement A Community Forum where users and artists can discuss and share ideas.
+
+// APIs I will need,
+//1. GET ALL POSTS (Global Feed)
+//2. CREATE A NEW POST
+//3. GET COMMENTS FOR A SPECIFIC POST
+//4. ADD A COMMENT TO A SPECIFIC POST
+//5. DELETE A POST
+// 6. LIKE/UNLIKE A POST , ekta patch lagbe.
 
 
+
+
+
+app.get("/api/community/posts", async (req, res) => {
+    try 
+    {
+        
+        const posts = await communityPostCollection.find().sort({ createdAt: -1 }).toArray();
+        res.status(200).json(posts);
+
+    } 
+
+    catch (error) 
+    {
+
+        console.error("Error fetching community posts:", error);
+        res.status(500).json({ error: "Failed to fetch posts." });
+    }
+});
+
+
+app.post("/api/community/posts", async (req, res) => {
+    try {
+        const postData = req.body;
+        
+        
+        postData.createdAt = new Date().toISOString();
+        postData.likes = []; 
+        
+        const result = await communityPostCollection.insertOne(postData);
+        res.status(201).json({ success: true, insertedId: result.insertedId });
+    } catch (error) {
+        console.error("Error creating post:", error);
+        res.status(500).json({ success: false, message: "Failed to create post." });
+    }
+});
+
+
+app.get("/api/community/posts/:postId/comments", async (req, res) => {
+    try {
+        const { postId } = req.params;
+        
+        
+        const comments = await communityCommentCollection
+            .find({ postId: postId })
+            .sort({ createdAt: 1 }) 
+            .toArray();
+            
+        res.status(200).json(comments);
+    } catch (error) {
+        console.error("Error fetching comments:", error);
+        res.status(500).json({ error: "Failed to fetch comments." });
+    }
+});
+
+
+app.post("/api/community/posts/:postId/comments", async (req, res) => {
+    try {
+        const commentData = req.body;
+        
+        
+        commentData.createdAt = new Date().toISOString();
+        commentData.postId = req.params.postId; 
+        
+        const result = await communityCommentCollection.insertOne(commentData);
+        res.status(201).json({ success: true, insertedId:result.insertedId });
+
+    } catch (error) {
+        console.error("Error adding comment:", error);
+        res.status(500).json({ success: false, message: "Failed to add comment." });
+    }
+});
+
+
+app.delete("/api/community/posts/:postId", async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const filter = { _id: new ObjectId(postId) };
+        
+       
+        const deletePostResult = await communityPostCollection.deleteOne(filter);
+        
+        if (deletePostResult.deletedCount > 0) 
+        {
+           // sob comments delete kore dibo. have to use deletemany.
+
+            await communityCommentCollection.deleteMany({ postId: postId });
+
+            res.status(200).json({ success: true, message: "Post and associated comments deleted." });
+        } else {
+            res.status(404).json({ success: false, message: "Post not found." });
+        }
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        res.status(500).json({ success: false, error: "Failed to delete post." });
+    }
+});
+
+
+app.patch("/api/community/posts/:postId/like", async (req, res) => {
+    try {
+        const { postId } = req.params;
+        const { userId } = req.body; 
+
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID required" });
+        }
+
+        const filter = { _id: new ObjectId(postId) };
+        const post = await communityPostCollection.findOne(filter);
+        
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        const likesArray = post.likes || []; 
+
+        const hasLiked = likesArray.includes(userId);
+        const updateDoc = hasLiked 
+            ? { $pull: { likes: userId } } 
+            : { $push: { likes: userId } };
+
+        await communityPostCollection.updateOne(filter, updateDoc);
+
+        res.status(200).json({ success: true, isLiked: !hasLiked });
+    } catch (error) {
+        console.error("Error toggling like:", error);
+        res.status(500).json({ success: false, error: "Failed to update like status." });
+    }
+});
 
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
