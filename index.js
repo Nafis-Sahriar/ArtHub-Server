@@ -1059,13 +1059,18 @@ app.get("/api/wishlist/user/:userId",verifyToken, async (req, res) => {
     }
 });
 
-// GET WISHLIST COUNT ONLY
+
 app.get("/api/wishlist/count/:userId",verifyToken, async (req, res) => {
+
     try {
         const { userId } = req.params;
+
         const count = await wishlistCollection.countDocuments({ userId });
+
         res.status(200).json({ count });
-    } catch (error) {
+    } 
+    catch (error) 
+    {
         res.status(500).json({ count: 0 });
     }
 });
