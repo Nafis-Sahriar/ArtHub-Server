@@ -1078,7 +1078,7 @@ app.get("/api/wishlist/count/:userId",verifyToken, async (req, res) => {
 
 
 
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } 
   finally 
   {
@@ -1089,5 +1089,5 @@ app.get("/api/wishlist/count/:userId",verifyToken, async (req, res) => {
 run().catch(console.dir);
 
 app.listen(port, () => {
-  console.log(`ArtHub server listening at http://localhost:${port}`);
+//   console.log(`ArtHub server listening at http://localhost:${port}`);
 });
